@@ -48,8 +48,9 @@ const Dashboard: React.FC = () => {
   const [code, setCode] = useState('// Write your OpenSCAD code for openFFM Cloud here\ncube([10, 10, 10]);');
   const [fileName, setFileName] = useState('New Design');
   const [renderUrl, setRenderUrl] = useState<string | null>(null);
-  const [renderType, setRenderType] = useState<'image' | 'stl' | 'obj' | '3mf' | 'scad' | null>(null);
+  const [renderType, setRenderType] = useState<'image' | 'stl' | 'obj' | '3mf' | 'glb' | 'scad' | null>(null);
   const [isRendering, setIsRendering] = useState(false);
+  const [useGLB, setUseGLB] = useState(true); // Preferred for 3MF colors
   const [isGeneratingGCode, setIsGeneratingGCode] = useState(false);
   const [printStats, setPrintStats] = useState<{ filament_used: string; estimated_time: string; cost_breakdown?: any } | null>(null);
 
@@ -85,8 +86,8 @@ const Dashboard: React.FC = () => {
   
   // Interactive Lighting State
   const [lights, setLights] = useState<LightConfig[]>([
-      { id: '1', position: [50, 50, 50], color: '#ffffff', intensity: 1.0 },
-      { id: '2', position: [-50, 50, -50], color: '#ffffff', intensity: 0.5 }
+      { id: '1', position: [100, 100, 100], color: '#ffffff', intensity: 1.0 },
+      { id: '2', position: [-100, 100, -100], color: '#ffffff', intensity: 1.0 }
   ]);
   const [isEditingLights, setIsEditingLights] = useState(false);
   const [selectedLightId, setSelectedLightId] = useState<string | null>(null);
@@ -129,12 +130,20 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type.toLowerCase())) {
         const type = currentFile.type.toLowerCase();
-        setRenderUrl(`/renders/${currentFile.content}`);
-        setRenderType(type as any);
+        let url = `/renders/${currentFile.content}`;
+        let finalType = type;
+
+        if (type === '3mf' && useGLB) {
+            url = url.replace(/\.3mf$/i, '.glb');
+            finalType = 'glb';
+        }
+
+        setRenderUrl(url);
+        setRenderType(finalType as any);
         setActiveTab('view');
         if (isMobile) setMobileTab('preview');
     }
-  }, [currentFile, isMobile]);
+  }, [currentFile, isMobile, useGLB]);
 
   const fetchCalcData = async () => {
       try {
@@ -434,17 +443,30 @@ const Dashboard: React.FC = () => {
       }
   };
 
-  const handleDownload = () => {
-    if (!renderUrl) return;
-    const link = document.createElement('a');
-    link.href = renderUrl;
+  const handleDownload = (format?: string) => {
+    if (!renderUrl && !currentFile) return;
     
-    // Determine extension
+    let downloadUrl = renderUrl;
     let ext = 'obj';
-    if (renderType === 'image') ext = 'png';
-    else if (renderUrl.endsWith('.stl')) ext = 'stl';
-    else if (renderUrl.endsWith('.obj')) ext = 'obj';
+
+    if (format === '3mf' && currentFile?.type === '3mf') {
+        downloadUrl = `/renders/${currentFile.content}`;
+        ext = '3mf';
+    } else if (format === 'glb' && currentFile?.type === '3mf') {
+        downloadUrl = `/renders/${currentFile.content.replace(/\.3mf$/i, '.glb')}`;
+        ext = 'glb';
+    } else {
+        if (renderType === 'image') ext = 'png';
+        else if (renderUrl?.endsWith('.stl')) ext = 'stl';
+        else if (renderUrl?.endsWith('.obj')) ext = 'obj';
+        else if (renderUrl?.endsWith('.glb')) ext = 'glb';
+        else if (renderUrl?.endsWith('.3mf')) ext = '3mf';
+    }
     
+    if (!downloadUrl) return;
+
+    const link = document.createElement('a');
+    link.href = downloadUrl;
     link.download = `${fileName.replace(/\s+/g, '_')}_render.${ext}`;
     document.body.appendChild(link);
     link.click();
@@ -728,11 +750,41 @@ const Dashboard: React.FC = () => {
                         <button onClick={() => setActiveTab('customize')} className={clsx("flex-1 py-3 text-sm font-medium border-b-2", activeTab === 'customize' ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500")}>Customizer</button>
                     )}
                  </div>
-                 {(renderUrl || (currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type))) && (
-                     <button onClick={handleDownload} className="mr-3 text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Download Result">
-                         <Download size={18} />
-                     </button>
-                 )}
+                 <div className="flex items-center gap-1 pr-2">
+                    {currentFile?.type === '3mf' && (
+                        <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1 mr-2 scale-75 origin-right">
+                            <button 
+                                onClick={() => setUseGLB(false)} 
+                                className={clsx("px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all", !useGLB ? "bg-white dark:bg-gray-700 shadow-sm text-blue-500" : "text-gray-400")}
+                            >
+                                3MF
+                            </button>
+                            <button 
+                                onClick={() => setUseGLB(true)} 
+                                className={clsx("px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all", useGLB ? "bg-white dark:bg-gray-700 shadow-sm text-blue-500" : "text-gray-400")}
+                            >
+                                GLB
+                            </button>
+                        </div>
+                    )}
+                    {(renderUrl || (currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type))) && (
+                        <div className="relative group/dl">
+                            <button className="text-gray-500 hover:text-blue-600 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" title="Download Options">
+                                <Download size={18} />
+                            </button>
+                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-50 py-1 hidden group-hover/dl:block min-w-[120px]">
+                                {currentFile?.type === '3mf' ? (
+                                    <>
+                                        <button onClick={() => handleDownload('3mf')} className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700">Download 3MF</button>
+                                        <button onClick={() => handleDownload('glb')} className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">Download GLB</button>
+                                    </>
+                                ) : (
+                                    <button onClick={() => handleDownload()} className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-700">Download {renderType?.toUpperCase()}</button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                 </div>
              </div>
 
              <div className="flex-1 relative overflow-hidden bg-gray-50 dark:bg-gray-900/50">
@@ -803,8 +855,8 @@ const Dashboard: React.FC = () => {
                         {isGeneratingGCode && <div className="absolute inset-0 z-20 bg-black/50 flex items-center justify-center text-white flex-col gap-2"><RefreshCw className="animate-spin" size={32}/><span>Slicing & Calculating...</span></div>}
                         
                         <Viewer3D  
-                            url={currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type.toLowerCase()) ? `/renders/${currentFile.content}` : renderUrl} 
-                            type={currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type.toLowerCase()) ? (currentFile.type.toLowerCase() as any) : renderType} 
+                            url={renderUrl} 
+                            type={renderType} 
                             cameraPreset={cameraPreset} 
                             zoom={zoom}
                             lightGizmoRadius={lightGizmoRadius}

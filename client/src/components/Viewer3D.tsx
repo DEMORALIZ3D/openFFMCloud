@@ -4,7 +4,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import { OrbitControls, Grid, GizmoHelper, GizmoViewcube, Html, Line, Sphere } from '@react-three/drei';
 import { RefreshCw } from 'lucide-react';
 import * as THREE from 'three';
-import { OBJLoader, STLLoader } from 'three-stdlib';
+import { OBJLoader, STLLoader, GLTFLoader } from 'three-stdlib';
 import { ThreeMFLoader } from 'three/examples/jsm/loaders/3MFLoader.js';
 import * as fflate from 'fflate';
 import JSZip from 'jszip';
@@ -24,7 +24,7 @@ export interface LightConfig {
 
 interface Viewer3DProps {
   url: string | null;
-  type: 'image' | 'stl' | 'obj' | '3mf' | 'scad' | null;
+  type: 'image' | 'stl' | 'obj' | '3mf' | 'glb' | 'scad' | null;
   cameraPreset?: string;
   zoom?: number;
   onError?: (err: Error) => void;
@@ -54,7 +54,7 @@ class ModelErrorBoundary extends React.Component<{ children: React.ReactNode, on
 
 const ModelInner: React.FC<{ 
     url: string; 
-    type: 'stl' | 'obj' | '3mf'; 
+    type: 'stl' | 'obj' | '3mf' | 'glb'; 
     onPointClick: (pt: THREE.Vector3) => void; 
     onLoad?: () => void; 
     onProgress?: (percent: number) => void;
@@ -70,6 +70,7 @@ const ModelInner: React.FC<{
   // Use standard loaders for STL/OBJ
   const stl = useLoader(STLLoader, normalizedType === 'stl' ? url : [], undefined, handleProgress);
   const obj = useLoader(OBJLoader, normalizedType === 'obj' ? url : [], undefined, handleProgress);
+  const glb = useLoader(GLTFLoader, normalizedType === 'glb' ? url : [], undefined, handleProgress);
   
   // For 3MF, we follow the manual "Vanilla" approach from the example
   useEffect(() => {
@@ -107,7 +108,7 @@ const ModelInner: React.FC<{
       load3MF();
   }, [url, normalizedType, onLoad]);
 
-  const result = normalizedType === 'stl' ? stl : (normalizedType === 'obj' ? obj : manualResult);
+  const result = normalizedType === 'stl' ? stl : (normalizedType === 'obj' ? obj : (normalizedType === 'glb' ? glb : manualResult));
 
   useEffect(() => {
       // For STL/OBJ, onLoad is called here. For 3MF, it's called inside the manual effect.
@@ -131,16 +132,31 @@ const ModelInner: React.FC<{
           object.castShadow = true;
           object.receiveShadow = true;
       } else {
-          // OBJ or 3MF
-          object = (result as THREE.Group).clone();
+          // OBJ or 3MF or GLB
+          if (normalizedType === 'glb') {
+              object = (result as any).scene.clone();
+          } else {
+              object = (result as THREE.Group).clone();
+          }
+
           object.traverse((child) => {
-              if (child instanceof THREE.Mesh) {
-                  child.castShadow = true;
-                  child.receiveShadow = true;
-                  if (child.material) {
-                      const materials = Array.isArray(child.material) ? child.material : [child.material];
-                      materials.forEach(m => {
-                          if (m && 'side' in m) (m as any).side = THREE.DoubleSide;
+              if ((child as any).isMesh) {
+                  const mesh = child as THREE.Mesh;
+                  mesh.castShadow = true;
+                  mesh.receiveShadow = true;
+                  
+                  if (mesh.material) {
+                      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                      materials.forEach((m: any) => {
+                          if (m && 'side' in m) m.side = THREE.DoubleSide;
+                          
+                          // If it's a 3MF and has vertex colors, ensure they are enabled
+                          if (mesh.geometry.attributes.color) {
+                              m.vertexColors = true;
+                              // Important: For vertex colors, sometimes the material color must be white 
+                              // to avoid tinting the vertex colors
+                              if (m.color) m.color.set('#ffffff');
+                          }
                       });
                   }
               }
@@ -171,7 +187,7 @@ const ModelInner: React.FC<{
 
 const Model: React.FC<{ 
     url: string; 
-    type: 'stl' | 'obj' | '3mf'; 
+    type: 'stl' | 'obj' | '3mf' | 'glb'; 
     onPointClick: (pt: THREE.Vector3) => void; 
     onLoad?: () => void; 
     onError?: (err: Error) => void;

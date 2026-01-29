@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import bcrypt from 'bcrypt';
 import multer from 'multer';
+import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
 import { renderQueue, queueEvents } from './queue';
 import './worker';
@@ -35,6 +36,28 @@ app.use('/api', settingsRouter);
 // Serve Static Renders
 const RENDER_DIR = path.resolve(process.cwd(), 'public/renders');
 app.use('/renders', express.static(RENDER_DIR));
+
+const convert3MFToGLB = (inputFilename: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const inputPath = path.join(RENDER_DIR, inputFilename);
+        const outputFilename = inputFilename.replace(/\.3mf$/i, '.glb');
+        const outputPath = path.join(RENDER_DIR, outputFilename);
+        const scriptPath = path.resolve(process.cwd(), 'scripts/convert_3mf.py');
+
+        console.log(`Converting 3MF to GLB: ${inputFilename} -> ${outputFilename}`);
+        const child = spawn('python3', [scriptPath, inputPath, outputPath]);
+
+        child.on('close', (code) => {
+            if (code === 0) {
+                resolve(outputFilename);
+            } else {
+                reject(new Error(`Conversion failed with code ${code}`));
+            }
+        });
+
+        child.on('error', (err) => reject(err));
+    });
+};
 
 // Serve Frontend
 const CLIENT_BUILD = path.resolve(process.cwd(), 'client/dist');
@@ -116,7 +139,7 @@ app.post('/api/files', authenticateToken, (req, res) => {
     }
 });
 
-app.post('/api/files/upload', authenticateToken, upload.single('file'), (req, res) => {
+app.post('/api/files/upload', authenticateToken, upload.single('file'), async (req, res) => {
     const user = (req as AuthRequest).user!;
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
@@ -124,6 +147,11 @@ app.post('/api/files/upload', authenticateToken, upload.single('file'), (req, re
     const type = ext === '.stl' ? 'stl' : (ext === '.obj' ? 'obj' : '3mf');
     const name = req.file.originalname;
     const content = req.file.filename; // Store the disk filename as content for uploads
+
+    // If 3MF, attempt conversion to GLB for better viewer support
+    if (type === '3mf') {
+        convert3MFToGLB(content).catch(err => console.error("Auto-conversion failed:", err));
+    }
 
     const stmt = db.prepare('INSERT INTO files (user_id, name, content, type) VALUES (?, ?, ?, ?)');
     const info = stmt.run(user.id, name, content, type);
@@ -152,6 +180,12 @@ app.delete('/api/files/:id', authenticateToken, async (req, res) => {
         if (file.type !== 'scad' && file.content) {
             const filePath = path.join(RENDER_DIR, file.content);
             await fs.unlink(filePath).catch(() => {}); // Ignore if already gone
+            
+            // Also cleanup potential GLB conversion
+            if (file.type === '3mf') {
+                const glbPath = filePath.replace(/\.3mf$/i, '.glb');
+                await fs.unlink(glbPath).catch(() => {});
+            }
         }
 
         // Delete from DB

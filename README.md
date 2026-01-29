@@ -80,6 +80,12 @@ To further evolve openFFM Cloud into a complete 3D production ecosystem, the fol
 - **Folders & Tagging:** Improved organization for large libraries of designs and renders.
 - **Multi-Server Scaling:** Support for distributed workers to handle rendering queues across multiple machines.
 
+### Other
+- Multinational currency support
+- Quoting - ability to send private links with quotes displayed allowing family and friends or small companies to send 3d model previews and cost before printing.
+- Add ability to auto back up db and generations to bucket somewhere.
+- Upload designs to Makerworld/creatlity cloud/thingiverse/cults if API intergration possible.
+
 ## 💡 About AHM Labs & Open Source
 This project is part of an initiative by **AHM Labs** to release high-utility, applicationswith the assitance of AI to the open-source community. Our goal is to provide powerful tools that anyone can fork, modify, or deploy, while exploring the future of rapid application development. We use AI to help build our hand written concepts out faster. Giving way to rapid prototyping and allow us to gain skills for our clients.
 

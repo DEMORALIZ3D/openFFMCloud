@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # - wget/gnupg: To fetch the OpenSCAD repo key
 # - xvfb: "X Virtual Framebuffer" (needed to trick OpenSCAD into thinking it has a screen)
 # - libgl1/mesa: Graphics drivers required for CSG rendering
+# - python3/pip: For 3MF to GLB conversion
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     gnupg \
@@ -18,7 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-dri \
     libgtk-3-0 \
     libglu1-mesa \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Python libraries for 3MF conversion
+RUN pip3 install --break-system-packages trimesh lxml
 
 # 2. Add OpenSCAD Nightly Repository (Debian 12 / Bookworm)
 # We use the OpenSUSE build service which hosts the official Nightlies
