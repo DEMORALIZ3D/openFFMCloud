@@ -26,6 +26,7 @@ export function initDb() {
       name TEXT NOT NULL,
       content TEXT,
       type TEXT DEFAULT 'scad',
+      status TEXT DEFAULT 'ready',
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
@@ -48,6 +49,10 @@ export function initDb() {
   // Ensure 'type' column exists in files (migration for existing DBs)
   try {
       db.exec("ALTER TABLE files ADD COLUMN type TEXT DEFAULT 'scad'");
+  } catch (e) {}
+
+  try {
+      db.exec("ALTER TABLE files ADD COLUMN status TEXT DEFAULT 'ready'");
   } catch (e) {}
 
   try {

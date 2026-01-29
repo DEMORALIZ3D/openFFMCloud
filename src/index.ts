@@ -45,7 +45,9 @@ const convert3MFToGLB = async (fileId: number, inputFilename: string): Promise<s
 
     return new Promise((resolve, reject) => {
         console.log(`[File ${fileId}] Converting 3MF to GLB...`);
-        const child = spawn('python3', [scriptPath, inputPath, outputPath]);
+        const child = spawn('python3', [scriptPath, inputPath, outputPath], {
+            env: { ...process.env, DISPLAY: ':99' }
+        });
 
         let stderr = '';
         child.stderr.on('data', (data) => stderr += data.toString());

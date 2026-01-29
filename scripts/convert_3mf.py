@@ -15,6 +15,7 @@ def convert_3mf_to_glb(input_path, output_path):
         cmd = [
             "openscad",
             "-o", temp_obj,
+            "--backend=manifold",
             input_path
         ]
         # Run with a timeout and capture output

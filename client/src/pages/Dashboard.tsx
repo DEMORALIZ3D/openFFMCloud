@@ -21,6 +21,7 @@ interface ScadFile {
   name: string;
   content: string;
   type?: 'scad' | 'stl' | 'obj' | '3mf';
+  status?: 'ready' | 'processing' | 'failed';
   updated_at: string;
 }
 
@@ -127,6 +128,21 @@ const Dashboard: React.FC = () => {
     fetchCalcData();
   }, []);
 
+  // Poll for status updates if any file is processing
+  useEffect(() => {
+      const hasProcessing = files.some(f => f.status === 'processing');
+      if (hasProcessing) {
+          const timer = setInterval(() => {
+              fetchFiles();
+              // If current file is the one processing, refresh its data too
+              if (currentFile && currentFile.status === 'processing') {
+                  handleLoad(currentFile.id);
+              }
+          }, 30000);
+          return () => clearInterval(timer);
+      }
+  }, [files, currentFile]);
+
   useEffect(() => {
     if (currentFile?.type && ['stl', 'obj', '3mf'].includes(currentFile.type.toLowerCase())) {
         const type = currentFile.type.toLowerCase();
@@ -193,7 +209,8 @@ const Dashboard: React.FC = () => {
       
       // Normalize type and set currentFile
       const type = res.data.type?.toLowerCase() || 'scad';
-      const fileData = { ...res.data, type };
+      const status = res.data.status || (type === '3mf' ? 'processing' : 'ready');
+      const fileData = { ...res.data, type, status };
       
       setCurrentFile(fileData);
       setFileName(res.data.name);
@@ -857,6 +874,7 @@ const Dashboard: React.FC = () => {
                         <Viewer3D  
                             url={renderUrl} 
                             type={renderType} 
+                            status={currentFile?.status}
                             cameraPreset={cameraPreset} 
                             zoom={zoom}
                             lightGizmoRadius={lightGizmoRadius}

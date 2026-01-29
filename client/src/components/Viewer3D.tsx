@@ -25,6 +25,7 @@ export interface LightConfig {
 interface Viewer3DProps {
   url: string | null;
   type: 'image' | 'stl' | 'obj' | '3mf' | 'glb' | 'scad' | null;
+  status?: 'ready' | 'processing' | 'failed';
   cameraPreset?: string;
   zoom?: number;
   onError?: (err: Error) => void;
@@ -322,7 +323,7 @@ const LightEditor: React.FC<{
 };
 
 const Viewer3D: React.FC<Viewer3DProps> = ({ 
-    url, type, cameraPreset, zoom = 50,
+    url, type, status, cameraPreset, zoom = 50,
     showGrid = true, showAxes = true,
     bgColor = '#f0f0f0', bgImage = null,
     lights, isEditingLights = false, onAddLight, onSelectLight, selectedLightId,
@@ -396,6 +397,28 @@ const Viewer3D: React.FC<Viewer3DProps> = ({
                    <span className="font-medium tracking-wide">Loading 3D Model...</span>
                    {loadProgress > 0 && <span className="text-xs text-gray-300 font-mono">{loadProgress}%</span>}
                </div>
+           </div>
+       )}
+       {status === 'processing' && (
+           <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center text-white gap-4 text-center p-6">
+               <div className="relative">
+                   <RefreshCw className="animate-spin text-blue-400" size={48}/>
+                   <div className="absolute inset-0 blur-xl bg-blue-500/20 animate-pulse"></div>
+               </div>
+               <div className="space-y-1">
+                   <h3 className="text-lg font-bold tracking-tight">Optimizing Model</h3>
+                   <p className="text-sm text-gray-400 max-w-xs">We are converting your 3MF to a high-fidelity GLB format to preserve all colors and textures. This usually takes 5-10 seconds.</p>
+               </div>
+           </div>
+       )}
+       {status === 'failed' && (
+           <div className="absolute inset-0 z-20 bg-red-950/90 backdrop-blur-md flex flex-col items-center justify-center text-white p-6 text-center gap-4">
+               <div className="bg-red-500 p-3 rounded-full shadow-lg shadow-red-500/40"><RefreshCw size={32}/></div>
+               <div className="space-y-1">
+                   <h3 className="text-lg font-bold">Optimization Failed</h3>
+                   <p className="text-sm text-red-200/70 max-w-xs">The color conversion failed. You can still view the original 3MF by switching the toggle above, but colors may be missing.</p>
+               </div>
+               <button onClick={() => window.location.reload()} className="mt-2 btn-secondary bg-white/10 border-white/20 text-white hover:bg-white/20">Retry Conversion</button>
            </div>
        )}
        {loadError && (
