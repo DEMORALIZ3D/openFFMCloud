@@ -1,0 +1,8 @@
+node_modules/
+dist/
+data/*.db*
+public/renders/
+.env
+*.log
+public/renders/*
+tools/

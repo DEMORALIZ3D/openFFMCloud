@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: openffm-cloud
+    # Map Host Port 5214 -> Container Port 3000
+    ports:
+      - "5214:3000"
+    volumes:
+      - ./designs:/usr/src/app/designs
+      - ./public/renders:/usr/src/app/public/renders
+      - ./data:/usr/src/app/data
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - default  # Needed to talk to Redis (which is on 'default')
+      - media-stack_media_stack # Needed to talk to Nginx Proxy Manager
+
+  redis:
+    image: redis:alpine
+    # Redis doesn't need to be on the media network, only the app does.
+    # It will stay on the 'default' internal network.
+    ports:
+      - "6379:6379"
+    networks:
+      - default
+
+networks:
+  # This enables the internal link between app and redis
+  default:
+  
+  # This connects your app to your existing media stack
+  media-stack_media_stack:
+    external: true
