@@ -60,5 +60,30 @@ Models can be shared via a unique public link.
 - **SCAD:** Public users can adjust variables and trigger a preview render.
 - **Meshes:** Public users can view the 3D model but cannot trigger slicing or editing.
 
+## Future Enhancements & Roadmap
+
+To further evolve openFFM Cloud into a complete 3D production ecosystem, the following features are planned:
+
+### 🛠️ Production & Slicing
+- **Batch Production & Nesting:** Implement automated "Auto-Layout" to arrange multiple models on a single virtual print bed to optimize space and minimize print time.
+- **Advanced Filament Library:** - Track physical spool inventory (grams remaining) based on completed print jobs.
+    - Custom material profiles (density/cost) for more accurate price estimations.
+- **API-First Automation:** Support for webhooks to trigger renders or slicing jobs from external services.
+
+### 👥 Collaboration & Sharing
+- **Real-Time Collaboration:** Multi-user sessions where participants can see synchronized camera movements and live OpenSCAD parameter changes.
+- **Community Templates:** A public gallery for users to share their SCAD configurators and rendered assets.
+- **Mobile AR Preview:** Integrate WebXR to allow users to visualize their 3D models in their physical space before printing.
+
+### 📦 Asset Management
+- **Automated Version Control:** A snapshot system to save and revert to previous versions of OpenSCAD code or mesh uploads.
+- **Folders & Tagging:** Improved organization for large libraries of designs and renders.
+- **Multi-Server Scaling:** Support for distributed workers to handle rendering queues across multiple machines.
+
+## 💡 About AHM Labs & Open Source
+This project is part of an initiative by **AHM Labs** to release high-utility, applicationswith the assitance of AI to the open-source community. Our goal is to provide powerful tools that anyone can fork, modify, or deploy, while exploring the future of rapid application development. We use AI to help build our hand written concepts out faster. Giving way to rapid prototyping and allow us to gain skills for our clients.
+
+If you find this tool useful, consider supporting our work through sponsorship or by contributing to the code!
+
 ## License
 MIT
