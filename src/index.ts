@@ -37,25 +37,34 @@ app.use('/api', settingsRouter);
 const RENDER_DIR = path.resolve(process.cwd(), 'public/renders');
 app.use('/renders', express.static(RENDER_DIR));
 
-const convert3MFToGLB = (inputFilename: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const inputPath = path.join(RENDER_DIR, inputFilename);
-        const outputFilename = inputFilename.replace(/\.3mf$/i, '.glb');
-        const outputPath = path.join(RENDER_DIR, outputFilename);
-        const scriptPath = path.resolve(process.cwd(), 'scripts/convert_3mf.py');
+const convert3MFToGLB = async (fileId: number, inputFilename: string): Promise<string> => {
+    const inputPath = path.join(RENDER_DIR, inputFilename);
+    const outputFilename = inputFilename.replace(/\.3mf$/i, '.glb');
+    const outputPath = path.join(RENDER_DIR, outputFilename);
+    const scriptPath = path.resolve(process.cwd(), 'scripts/convert_3mf.py');
 
-        console.log(`Converting 3MF to GLB: ${inputFilename} -> ${outputFilename}`);
+    return new Promise((resolve, reject) => {
+        console.log(`[File ${fileId}] Converting 3MF to GLB...`);
         const child = spawn('python3', [scriptPath, inputPath, outputPath]);
+
+        let stderr = '';
+        child.stderr.on('data', (data) => stderr += data.toString());
 
         child.on('close', (code) => {
             if (code === 0) {
+                db.prepare("UPDATE files SET status = 'ready' WHERE id = ?").run(fileId);
                 resolve(outputFilename);
             } else {
+                console.error(`[File ${fileId}] Conversion failed:`, stderr);
+                db.prepare("UPDATE files SET status = 'failed' WHERE id = ?").run(fileId);
                 reject(new Error(`Conversion failed with code ${code}`));
             }
         });
 
-        child.on('error', (err) => reject(err));
+        child.on('error', (err) => {
+            db.prepare("UPDATE files SET status = 'failed' WHERE id = ?").run(fileId);
+            reject(err);
+        });
     });
 };
 
@@ -108,7 +117,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // --- File Routes ---
 app.get('/api/files', authenticateToken, (req, res) => {
     const user = (req as AuthRequest).user!;
-    const stmt = db.prepare('SELECT id, name, type, updated_at FROM files WHERE user_id = ? ORDER BY updated_at DESC');
+    const stmt = db.prepare('SELECT id, name, type, status, updated_at FROM files WHERE user_id = ? ORDER BY updated_at DESC');
     const files = stmt.all(user.id);
     res.json(files);
 });
@@ -146,21 +155,23 @@ app.post('/api/files/upload', authenticateToken, upload.single('file'), async (r
     const ext = path.extname(req.file.originalname).toLowerCase();
     const type = ext === '.stl' ? 'stl' : (ext === '.obj' ? 'obj' : '3mf');
     const name = req.file.originalname;
-    const content = req.file.filename; // Store the disk filename as content for uploads
+    const content = req.file.filename;
+    const status = type === '3mf' ? 'processing' : 'ready';
 
-    // If 3MF, attempt conversion to GLB for better viewer support
+    const stmt = db.prepare('INSERT INTO files (user_id, name, content, type, status) VALUES (?, ?, ?, ?, ?)');
+    const info = stmt.run(user.id, name, content, type, status);
+    const fileId = info.lastInsertRowid as number;
+
     if (type === '3mf') {
-        convert3MFToGLB(content).catch(err => console.error("Auto-conversion failed:", err));
+        convert3MFToGLB(fileId, content).catch(err => console.error("Auto-conversion failed:", err));
     }
 
-    const stmt = db.prepare('INSERT INTO files (user_id, name, content, type) VALUES (?, ?, ?, ?)');
-    const info = stmt.run(user.id, name, content, type);
-
     res.json({ 
-        id: info.lastInsertRowid, 
+        id: fileId, 
         name, 
         content, 
         type,
+        status,
         url: `/renders/${content}`
     });
 });
