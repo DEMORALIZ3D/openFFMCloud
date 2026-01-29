@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python libraries for 3MF conversion
-RUN pip3 install --break-system-packages trimesh lxml networkx
+RUN pip3 install --break-system-packages trimesh lxml networkx Pillow
 
 # 2. Add OpenSCAD Nightly Repository (Debian 12 / Bookworm)
 # We use the OpenSUSE build service which hosts the official Nightlies
